@@ -2,9 +2,10 @@ import argparse
 import logging
 from pathlib import Path
 from io import StringIO
+from sys import stdout
 
 from .config import config
-from .request import list_vcards
+from .propfind import ressources_info
 
 
 __all__ = ["add_args", "process"]
@@ -28,8 +29,8 @@ def process(parser):
             print(buffer.read())
         return
     ##
-    if args.command == "list":
-        list_vcards(config)
+    if args.command == "info":
+        ressources_info(config, stdout)
 
 
 def add_args(parser):
@@ -42,8 +43,8 @@ def add_args(parser):
         'dump-config', help="Dump a default config file.")
     subparser_print = subparsers.add_parser(
         "print-config", help="Print config.")
-    subparser_list = subparsers.add_parser(
-        "list", help="List vcards.")
+    subparser_info = subparsers.add_parser(
+        "info", help="Server information.")
     
 
 def dump_config(config_file, config):
@@ -56,7 +57,8 @@ def dump_config(config_file, config):
     if not config_file.exists():
         config_file = Path("config")
     if do_overwrite:
-        config.write(str(config_file))
+        with config_file.open("w") as file:
+            config.write(file)
 
 
 def read_config(config_file, config, logger):
