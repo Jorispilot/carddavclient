@@ -11,6 +11,7 @@ add_args(parser)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level="DEBUG", format="[%(name)s] %(message)s")
+    logging.basicConfig(level="INFO", format="[%(name)s] %(message)s")
+    logging.getLogger("requests").setLevel(logging.WARNING)
     process(parser)
     

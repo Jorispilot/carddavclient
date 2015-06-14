@@ -32,14 +32,15 @@ def process(parser):
             return
     ##
     if args.command == "get":
-        book = CardDavAddressBook(config)
-        book.fetch()
-        book.get()
+        command_get(args, config)
     ##
     if args.command == "info":
         book = CardDavAddressBook(config)
         book.fetch()
         book.info(stdout)
+    ##
+    if args.command == "put":
+        command_put(args, config)
     ##
     if args.command == "print-config":
         with StringIO() as buffer:
@@ -58,11 +59,45 @@ def add_args(parser):
     subparser_dump = subparsers.add_parser(
         'dump-config', help="Dump a default config file.")
     subparser_get = subparsers.add_parser(
-        "get", help="Download vcards.")
-    subparser_print = subparsers.add_parser(
-        "print-config", help="Print config.")
+        "get", help="Download ressources.")
+    subparser_get.add_argument("-a","--all",action="store_true",
+                               help="Download ALL ressources.")
+    subparser_get.add_argument("-f","--force",action="store_true",
+                               help="Force download.", default=False)
+    subparser_get.add_argument("names",nargs="*",
+                               help="List of ressource identifiers.")
     subparser_info = subparsers.add_parser(
         "info", help="Server information.")
+    subparser_print = subparsers.add_parser(
+        "print-config", help="Print config.")
+    subparser_put = subparsers.add_parser(
+        "put", help="Upload ALL vcards.")
+    subparser_put.add_argument("-a","--all",action="store_true",
+                               help="Upload ALL ressources.")
+    subparser_put.add_argument("-f","--force",action="store_true",
+                               help="Force upload.", default=False)
+    subparser_put.add_argument("names",nargs="*",
+                               help="List of ressource identifiers.")
+
+
+def command_get(args, config):
+    book = CardDavAddressBook(config)
+    book.fetch()
+    if args.all:
+        get_list = book.propfind
+    else:
+        get_list = args.names
+    book.get(get_list, force=args.force)
+
+
+def command_put(args, config):
+    book = CardDavAddressBook(config)
+    book.fetch()
+    if args.all:
+        put_list = book.cache
+    else:
+        put_list = args.names
+    book.put(put_list, force=args.force)
     
 
 def dump_config(config_file, config):
