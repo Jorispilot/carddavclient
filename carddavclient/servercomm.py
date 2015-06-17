@@ -115,7 +115,7 @@ class PropfindEntry(object):
     
     @property
     def name(self):
-        """Generate a name from url.
+        """Generated name from url.
 
         """
         return name_it(self.server_comm.url.geturl(), self.url)

@@ -15,7 +15,7 @@ __all__ = ["CardDavAddressBook"]
 
 
 class CardDavAddressBook(ServerComm, LocalCache):
-    """Address book synced to a CardDav server and a local directory.
+    """Address book synced to a CardDav server and a local files.
 
     """
     def __init__(self, config):
@@ -23,6 +23,9 @@ class CardDavAddressBook(ServerComm, LocalCache):
         LocalCache.__init__(self, config)
 
     def get(self, entry_list, *, force=False):
+        """Get the list of entries.
+
+        """
         for name in entry_list:
             name = self.identify(name)
             ## The ressource must exist on the server.
@@ -60,7 +63,9 @@ class CardDavAddressBook(ServerComm, LocalCache):
         return logging.getLogger("CardDavClient.AddressBook")
 
     def put(self, entry_list, *, force=False):
-        """Upload ressources.
+        """Upload the list of entries.
+
+        Must be entry names of path to files.
 
         """
         for name_or_path in entry_list:
