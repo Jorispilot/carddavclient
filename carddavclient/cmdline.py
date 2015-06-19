@@ -36,11 +36,17 @@ def process(parser):
     ##
     if args.command == "info":
         book = CardDavAddressBook(config)
-        book.fetch()
+        book.start()
         book.info(stdout)
+    ##
+    if args.command == "mv":
+        command_mv(args, config)
     ##
     if args.command == "put":
         command_put(args, config)
+    ##
+    if args.command == "rm":
+        command_rm(args, config)
     ##
     if args.command == "print-config":
         with StringIO() as buffer:
@@ -59,30 +65,43 @@ def add_args(parser):
     subparser_dump = subparsers.add_parser(
         'dump-config', help="Dump a default config file.")
     subparser_get = subparsers.add_parser(
-        "get", help="Download ressources.")
+        "get", help="Download vcards.")
     subparser_get.add_argument("-a","--all",action="store_true",
-                               help="Download ALL ressources.")
+                               help="Download ALL vcards.")
     subparser_get.add_argument("-f","--force",action="store_true",
-                               help="Force download.", default=False)
+                               help="Force download. (Default: False)",
+                               default=False)
     subparser_get.add_argument("names",nargs="*",
-                               help="List of ressource identifiers.")
+                               help="List of vcard identifiers.")
     subparser_info = subparsers.add_parser(
         "info", help="Server information.")
+    subparser_mv = subparsers.add_parser(
+        "mv", help="Move vcards.")
+    subparser_mv.add_argument("orig", help="Vcard identifier.")
+    subparser_mv.add_argument("dest", help="Vcard identifier.")
     subparser_print = subparsers.add_parser(
         "print-config", help="Print config.")
     subparser_put = subparsers.add_parser(
-        "put", help="Upload ALL vcards.")
+        "put", help="Upload vcards.")
     subparser_put.add_argument("-a","--all",action="store_true",
-                               help="Upload ALL ressources.")
+                               help="Upload ALL vcards.")
     subparser_put.add_argument("-f","--force",action="store_true",
-                               help="Force upload.", default=False)
+                               help="Force upload. (Default: False)",
+                               default=False)
     subparser_put.add_argument("names",nargs="*",
-                               help="List of ressource identifiers.")
+                               help="List of vcard identifiers.")
+    subparser_rm = subparsers.add_parser(
+        "rm", help="Remove vcards.")
+    subparser_rm.add_argument("-k","--keep-cache",action="store_true",
+                              help="Keep cached vcards. (Default: False)",
+                              default=False)
+    subparser_rm.add_argument("names",nargs="*",
+                              help="List of vcards identifiers.")
 
 
 def command_get(args, config):
     book = CardDavAddressBook(config)
-    book.fetch()
+    book.start()
     if args.all:
         get_list = book.propfind
     else:
@@ -90,14 +109,26 @@ def command_get(args, config):
     book.get(get_list, force=args.force)
 
 
+def command_mv(args, config):
+    book = CardDavAddressBook(config)
+    book.start()
+    book.move(args.orig, args.dest)
+
+
 def command_put(args, config):
     book = CardDavAddressBook(config)
-    book.fetch()
+    book.start()
     if args.all:
         put_list = book.cache
     else:
         put_list = args.names
     book.put(put_list, force=args.force)
+
+
+def command_rm(args, config):
+    book = CardDavAddressBook(config)
+    book.start()
+    book.delete(args.names, keep_cache=args.keep_cache)
     
 
 def dump_config(config_file, config):

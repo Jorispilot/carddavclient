@@ -7,15 +7,20 @@ from pprint import pformat
 import requests
 from requests.auth import HTTPBasicAuth
 
-from .tools import gen_digest, name_it, url_from_etree
+from .tools import gen_digest, name_it, url_from_etree, url_it
 
 
 class PropfindEntry(object):
-    """PROPFIND information about one ressource
+    """Entry corresponding to a vcard stored on a CardDav server.
+
+    Basic information about the vcard are accessible as object
+    items. Use methods to manipulate the vcards on the server.
 
     """
     def __getitem__(self, attr):
-        """Defined items:
+        """PROPFIND information values
+
+        Defined items:
         - Content-Length
         - Content-Type
         - ETag
@@ -34,6 +39,10 @@ class PropfindEntry(object):
 
     def __init__(self, server_comm, contentlength, contenttype, etag,
                  lastmodified, url):
+        """Low-level object initialization. Try to use one of the .from_*()
+        methods instead.
+
+        """
         self.server_comm = server_comm
         self.contentlength = contentlength
         self.contenttype = contenttype
@@ -41,28 +50,47 @@ class PropfindEntry(object):
         self.lastmodified = lastmodified
         self.url = url
 
-    def fetch(self):
-        """Fetch CardDav server information.
+    def delete(self):
+        """Remove a ressource off the server.
+
+        """
+        ## Prepare request.
+        params = self.server_comm._get_parameters()
+        params["url"] = self.url.geturl()
+        ##
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "Certificate has no `subjectAltName`")
+            fetched = requests.request("DELETE", **params)
+        ##
+        self._logger.debug("GET {0.status_code} {0.reason}".format(fetched))
+        if   fetched.status_code == 204:
+            self._logger.info("Deleted")
+        else:
+            self._logger.warning("GET {0.status_code} {0.reason}".format(fetched))
+
+    def _do_propfind(self):
+        """Fetch PROPFIND information.
 
         """
         params = self.server_comm._get_parameters()
         params["url"] = self.url.geturl()
-        self.logger.debug("PROPFIND")
+        self._logger.debug("PROPFIND")
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", "Certificate has no `subjectAltName`")
             fetched = requests.request("PROPFIND", **params)
         node = next( self.server_comm._iter_propfind_result(fetched) )
         self._update_from_etree(node)
-        self.logger.debug("Content-Length: {Content-Length}".format(**self))
-        self.logger.debug("Content-Type: {}".format(self["Content-Type"]))
-        self.logger.debug("Etag: {}".format(self["ETag"]))
-        self.logger.debug("Last-Modified: {}".format(self["Last-Modified"]))
+        self._logger.debug("Content-Length: {Content-Length}".format(**self))
+        self._logger.debug("Content-Type: {}".format(self["Content-Type"]))
+        self._logger.debug("Etag: {}".format(self["ETag"]))
+        self._logger.debug("Last-Modified: {}".format(self["Last-Modified"]))
 
     @classmethod
     def from_etree(cls, server_comm, node):
-        """Build an object from PROPFIND xml result.
+        """Build an object from xml formated data.
 
-        The node argument must be an etree-parsed node.
+        The node argument is expected to be an xml node coming from a
+        PROPFIND response. It should have been parsed by etree.
 
         """
         url = url_from_etree(node)
@@ -73,16 +101,17 @@ class PropfindEntry(object):
 
     @classmethod
     def from_cacheentry(cls, server_comm, cache_entry):
-        """Build an object from cache information.
+        """Build an object from a cache_entry object.
 
         """
         name = cache_entry.path.name
-        url = server_comm.url.geturl() + urllib.quote(name)
-        self = cls( server_comm, None, None, None, None, url)
-        return self
+        url = url_it(server_comm.url, urllib.quote(name))
+        return cls(server_comm, None, None, None, None, url)
 
     def get(self, cache_entry, *, force=False):
         """Download a ressource using cache_entry information.
+
+        Replaces local data if ETag has changed or if forced.
 
         """
         ## Prepare request.
@@ -96,22 +125,51 @@ class PropfindEntry(object):
             warnings.filterwarnings("ignore", "Certificate has no `subjectAltName`")
             fetched = requests.request("GET", **params)
         ##
-        self.logger.debug("GET {0.status_code} {0.reason}".format(fetched))
+        self._logger.debug("GET {0.status_code} {0.reason}".format(fetched))
         if   fetched.status_code == 200:
-            self.logger.info("Downloaded")
+            self._logger.info("Downloaded")
         elif fetched.status_code == 304:
-            self.logger.info("Not Modified")
+            self._logger.info("Not Modified")
         else:
-            self.logger.warning("GET {0.status_code} {0.reason}".format(fetched))
+            self._logger.warning("GET {0.status_code} {0.reason}".format(fetched))
         ## Save data.
         if fetched.status_code != 200: ## Do not open file if the request has failed.
             return
-        self.logger.debug("Etag: {}".format(fetched.headers["ETag"]))
-        cache_entry.save(fetched)
+        self._logger.debug("Etag: {}".format(fetched.headers["ETag"]))
+        cache_entry.save_from_server(fetched)
 
     @property
-    def logger(self):
+    def _logger(self):
         return logging.getLogger("CardDavClient.ServerComm.{}".format(self.name))
+
+    def move(self, dest_name_or_url):
+        """Mode a ressource to the dest_url.
+
+        """
+        dest_url = url_it(self.server_comm.url, dest_name_or_url)
+        ## Prepare request.
+        params = self.server_comm._get_parameters()
+        params["url"] = self.url.geturl()
+        ## Add "If-None-Match" only if there is some local data.
+        params["headers"] = {"Destination": dest_url}
+        ##
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "Certificate has no `subjectAltName`")
+            fetched = requests.request("MOVE", **params)
+        ##
+        success = False
+        self._logger.debug("GET {0.status_code} {0.reason}".format(fetched))
+        if   fetched.status_code == 201:
+            success = True
+            self._logger.info("Moved to new location")
+        elif fetched.status_code == 204:
+            success = True
+            self._logger.info("Moved to existing location")
+        else:
+            self._logger.warning("GET {0.status_code} {0.reason}".format(fetched))
+            self._logger.debug("Request headers:\n " + pformat(fetched.request.headers))
+            self._logger.debug("Response headers:\n " + pformat(fetched.headers))
+        return success
     
     @property
     def name(self):
@@ -123,9 +181,11 @@ class PropfindEntry(object):
     def put(self, cache_entry, *, force=False):
         """Upload a ressource using cache_entry information.
 
+        Uploads if local data has been modified only.
+
         """
         if not cache_entry.path.exists():
-            self.logger.error("No local cache.")
+            self._logger.error("No local cache.")
             return
         with cache_entry.path.open("r") as file:
             data = file.read()
@@ -133,7 +193,7 @@ class PropfindEntry(object):
         current_digest = gen_digest(data)
         if (not force and self.etag is not None and
             current_digest == cache_entry.digest):
-            self.logger.info("Not modified.")
+            self._logger.info("Not modified.")
             return
         ## Prepare request.
         params = self.server_comm._get_parameters()
@@ -141,7 +201,7 @@ class PropfindEntry(object):
         params["headers"] = dict()
         params["headers"].update({"Content-Type": "text/x-vcard"})
         if self.etag == None:
-            self.logger.debug("Uploading new entry.")
+            self._logger.debug("Uploading new entry.")
             params["headers"].update({"If-None-Match": cache_entry.etag})
         else:
             params["headers"].update({"If-Match": cache_entry.etag})
@@ -151,19 +211,20 @@ class PropfindEntry(object):
             warnings.filterwarnings("ignore", "Certificate has no `subjectAltName`")
             fetched = requests.request("PUT", **params)
         ##
-        self.logger.debug("PUT {0.status_code} {0.reason}".format(fetched))
+        self._logger.debug("PUT {0.status_code} {0.reason}".format(fetched))
         if fetched.status_code == 201:
-            self.logger.info("Created".format(fetched))
+            self._logger.info("Created".format(fetched))
             return
         if fetched.status_code == 204:
-            self.logger.info("Uploaded".format(fetched))
+            self._logger.info("Uploaded".format(fetched))
             return
         elif fetched.status_code == 412:
-            self.logger.info("PUT {0.status_code} {0.reason}".format(fetched))
-            self.logger.info("Request headers:\n " + pformat(fetched.request.headers))
-            self.logger.info("Response headers:\n " + pformat(fetched.headers))
+            self._logger.info("PUT {0.status_code} {0.reason}".format(fetched))
+            self._logger.info("Request headers:\n " + pformat(fetched.request.headers))
+            self._logger.info("Response headers:\n " + pformat(fetched.headers))
             return
-        self.fetch()
+        self._do_propfind()
+        ## Update modification information.
         cache_entry.etag = fetched.headers["ETag"]
         cache_entry.digest = current_digest
 
@@ -183,7 +244,11 @@ class PropfindEntry(object):
 
 
 class ServerComm(object):
-    """Handle communications with a CardDav server.
+    """Communications with an addressbook stored on a CardDav server.
+
+    Each vcard on the server has a corresponding entry in the
+    `.propfind` dict. Call `.start()` to populate `.proprind` and use
+    the methods attached to the corresponding entry.
 
     """
     def _get_parameters(self):
@@ -219,15 +284,10 @@ class ServerComm(object):
                 continue
             yield child
 
-    def fetch(self):
-        """Fetch CardDav server information (entries and etag).
-
-        The data is stored in the propfind property.
-
-        """
+    def _do_propfind(self):
         params = self._get_parameters()
         params["url"] = self.url.geturl()
-        self.logger.debug("PROPFIND")
+        self._logger.debug("PROPFIND")
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", "Certificate has no `subjectAltName`")
             fetched = requests.request("PROPFIND", **params)
@@ -241,20 +301,26 @@ class ServerComm(object):
         for name in new_names & old_names:
             self.propfind[name] = propfind[name]
         for name in new_names - old_names:
-            self.logger.debug("New ressource: {}".format(name))
+            self._logger.debug("New ressource: {}".format(name))
             self.propfind[name] = propfind[name]
         for name in old_names - new_names:
-            self.logger.debug("Deleted ressource: {}".format(name))
+            self._logger.debug("Deleted ressource: {}".format(name))
             del self.propfind[name]
 
     @property
-    def logger(self):
+    def _logger(self):
         return logging.getLogger("CardDavClient.ServerComm")
 
     @property
     def propfind(self):
         """PROPFIND cached data."""
         return self._propfind_result
+
+    def start(self):
+        """Get the instance ready to communicate.
+
+        """
+        self._do_propfind()
 
     @property
     def url(self):
