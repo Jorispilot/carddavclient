@@ -206,7 +206,7 @@ class PropfindEntry(object):
         else:
             params["headers"].update({"If-Match": cache_entry.etag})
         #
-        params["data"] = data
+        params["data"] = bytes(data, "utf-8")
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", "Certificate has no `subjectAltName`")
             fetched = requests.request("PUT", **params)
