@@ -1,5 +1,7 @@
-CardDAV client
-==============
+CardDAVclient
+=============
 
-Command-line tool to manipulate ressources of a CardDAV server and
-sync them with files in the local filesystem.
+Command-line tool to communicate with a CardDAV server.
+
+A CardDAV server contains resources (i.e. vCards) that can be mirrored with
+local files. See command-line help for details.
