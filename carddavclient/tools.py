@@ -33,6 +33,24 @@ def path_it(cache_dir, name):
     return cache_dir.joinpath(name + ".vcf")
 
 
+def get_raw_http_request(req):
+    string = "{0.method} {0.url} HTTP/1.1\n".format(req)
+    headers = ["{}: {}\n".format(k, v) for k, v in req.headers.items()]
+    string += "".join(headers) + "\n"
+    if req.body:
+        string += "{0.body}".format(req)
+    return string
+
+
+def get_raw_http_response(req):
+    string = "HTTP/1.1 {0.status_code} {0.reason}\n".format(req)
+    headers = ["{}: {}\n".format(k, v) for k, v in req.headers.items()]
+    string += "".join(headers) + "\n"
+    if req.text:
+        string += "{0.text}".format(req)
+    return string
+
+
 def url_from_etree(node):
     """Get url form an etree-parsed result of PROPFIND.
     

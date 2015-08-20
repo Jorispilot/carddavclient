@@ -3,11 +3,15 @@ import warnings
 import urllib.parse as urllib
 import xml.etree.ElementTree as etree
 from pprint import pformat
+from subprocess import call
 
 import requests
+from pygments import highlight
+from pygments.lexers.textfmts import HttpLexer
+from pygments.formatters import Terminal256Formatter
 from requests.auth import HTTPBasicAuth
 
-from .tools import gen_digest, name_it, url_from_etree, url_it
+from .tools import gen_digest, get_raw_http_request, get_raw_http_response, name_it, url_from_etree, url_it
 
 
 class PropfindEntry(object):
@@ -121,9 +125,13 @@ class PropfindEntry(object):
         if not force and cache_entry.path.exists():
             params["headers"] = {"If-None-Match": cache_entry.etag}
         ##
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", "Certificate has no `subjectAltName`")
-            fetched = requests.request("GET", **params)
+        try:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", "Certificate has no `subjectAltName`")
+                fetched = requests.request("GET", **params)
+        except OSError as error:
+            self._logger.warning("Error: {!s}".format(error))
+            return
         ##
         self._logger.debug("GET {0.status_code} {0.reason}".format(fetched))
         if   fetched.status_code == 200:
@@ -167,8 +175,8 @@ class PropfindEntry(object):
             self._logger.info("Moved to existing location")
         else:
             self._logger.warning("GET {0.status_code} {0.reason}".format(fetched))
-            self._logger.debug("Request headers:\n " + pformat(fetched.request.headers))
-            self._logger.debug("Response headers:\n " + pformat(fetched.headers))
+            self._logger.debug("Request headers:\n " + get_raw_http_request(fetched.request) )
+            self._logger.debug("Response headers:\n " + get_raw_http_response(fetched) )
         return success
     
     @property
