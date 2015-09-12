@@ -299,6 +299,7 @@ class ServerComm(object):
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", "Certificate has no `subjectAltName`")
             fetched = requests.request("PROPFIND", **params)
+        fetched.raise_for_status()
         propfind = dict()
         for node in self._iter_propfind_result(fetched):
             entry = PropfindEntry.from_etree(self, node)
