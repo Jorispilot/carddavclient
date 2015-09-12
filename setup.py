@@ -2,6 +2,7 @@ from setuptools import setup
 setup(
 	name = "carddavclient",
 	packages = ["carddavclient"],
+        install_requires = ["requests"],
 	version = "0.1",
 	description = "Sync CardDAV ressources with local directory.",
 	author = "Jorispilot",
