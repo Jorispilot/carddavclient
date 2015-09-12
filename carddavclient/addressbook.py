@@ -1,9 +1,4 @@
 import logging
-# import warnings
-# import xml.etree.ElementTree as etree
-# from requests.auth import HTTPBasicAuth
-# from time import strftime, strptime, time
-# from urllib.parse import urlparse
 
 # import requests
 
