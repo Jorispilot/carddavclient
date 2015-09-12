@@ -15,14 +15,17 @@ def process(parser):
     logger = logging.getLogger("CardDavClient")
     args = parser.parse_args()
     config_file = Path(args.config)
-    ##
+
+    ## Dump config, and exit.
     if args.command == "dump-config":
         dump_config(config_file, config)
         return
-    ##
+
+    ## Read config, or create a new one.
     if config_file.exists():
         config.read(str(config_file))
         logger.debug("Config file read: " + str(config_file))
+        config.check()
     else:
         logger.info("No config file found at " + str(config_file))
         do_dump = False
@@ -30,23 +33,29 @@ def process(parser):
         if do_dump:
             dump_config(config_file, config)
             return
+
     ##
     if args.command == "get":
         command_get(args, config)
+
     ##
     if args.command == "info":
         book = CardDavAddressBook(config)
         book.start()
         book.info(stdout)
+
     ##
     if args.command == "mv":
         command_mv(args, config)
+
     ##
     if args.command == "put":
         command_put(args, config)
+
     ##
     if args.command == "rm":
         command_rm(args, config)
+
     ##
     if args.command == "print-config":
         with StringIO() as buffer:
