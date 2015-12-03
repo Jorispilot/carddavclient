@@ -255,7 +255,7 @@ class ServerComm(object):
     """Communications with an addressbook stored on a CardDav server.
 
     Each vcard on the server has a corresponding entry in the
-    `.propfind` dict. Call `.start()` to populate `.proprind` and use
+    `.propfind` dict. Call `.start()` to populate `.propfind` and use
     the methods attached to the corresponding entry.
 
     """
