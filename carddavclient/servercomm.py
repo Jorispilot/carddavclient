@@ -1,3 +1,4 @@
+import getpass
 import logging
 import warnings
 import urllib.parse as urllib
@@ -264,7 +265,7 @@ class ServerComm(object):
         params = self.params.copy()
         if "auth" not in params:
             if params["password"] is "":
-                params["password"] = input("password?")
+                params["password"] = getpass.getpass(prompt="password?",stream=None)
             params["auth"] = HTTPBasicAuth(params["user"], params["password"])
             self.params["auth"] = params["auth"]
         del params["user"]
@@ -276,7 +277,10 @@ class ServerComm(object):
         self.url = serverconfig.get("url")
         ## Get server parameters.
         params = dict()
-        params["verify"]   = serverconfig.get("ca-certificate")
+        if serverconfig.get("ca-certificate"):
+            params["verify"]   = serverconfig.get("ca-certificate")
+        else:
+            params["verify"]   = True
         params["user"]     = serverconfig.get("user")
         params["password"] = serverconfig.get("password")
         self.params = params
