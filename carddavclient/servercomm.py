@@ -277,7 +277,10 @@ class ServerComm(object):
         self.url = serverconfig.get("url")
         ## Get server parameters.
         params = dict()
-        params["verify"]   = serverconfig.get("ca-certificate")
+        if serverconfig.get("ca-certificate"):
+            params["verify"]   = serverconfig.get("ca-certificate")
+        else:
+            params["verify"]   = True
         params["user"]     = serverconfig.get("user")
         params["password"] = serverconfig.get("password")
         self.params = params
